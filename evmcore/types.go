@@ -17,10 +17,38 @@
 package evmcore
 
 import (
+	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 )
+
+// StateDB is an EVM database for full state querying.
+type StateDB interface {
+	vm.StateDB
+
+	SetBalance(addr common.Address, amount *big.Int)
+	// Database retrieves the low level database supporting the lower level trie ops.
+	Database() state.Database
+	// Prepare sets the current transaction hash and index which are
+	// used when the EVM emits new state logs.
+	Prepare(thash common.Hash, ti int)
+	// TxIndex returns the current transaction index set by Prepare.
+	TxIndex() int
+	GetLogs(hash common.Hash, blockHash common.Hash) []*types.Log
+	// IntermediateRoot computes the current root hash of the state trie.
+	// It is called in between transactions to get the root hash that
+	// goes into transaction receipts.
+	IntermediateRoot(deleteEmptyObjects bool) common.Hash
+	// Finalise finalises the state by removing the s destructed objects and clears
+	// the journal as well as the refunds. Finalise, however, will not push any updates
+	// into the tries just yet. Only IntermediateRoot or Commit will do that.
+	Finalise(deleteEmptyObjects bool)
+	// Commit writes the state to the underlying in-memory trie database.
+	Commit(deleteEmptyObjects bool) (common.Hash, error)
+}
 
 // Validator is an interface which defines the standard for block validation. It
 // is only responsible for validating block contents, as the header validation is
