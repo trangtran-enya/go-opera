@@ -139,5 +139,5 @@ func (r *EvmStateReader) getBlock(h hash.Event, n idx.Block, readTxs bool) *evmc
 }
 
 func (r *EvmStateReader) StateAt(root common.Hash) (*state.StateDB, error) {
-	return r.store.evm.StateDB(hash.Hash(root))
+	return r.store.evm.HistoryStateDB(hash.Hash(root))
 }

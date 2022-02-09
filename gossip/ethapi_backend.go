@@ -106,7 +106,7 @@ func (b *EthAPIBackend) StateAndHeaderByNumberOrHash(ctx context.Context, blockN
 	if header == nil {
 		return nil, nil, errors.New("header not found")
 	}
-	stateDb, err := b.svc.store.evm.StateDB(hash.Hash(header.Root))
+	stateDb, err := b.svc.store.evm.HistoryStateDB(hash.Hash(header.Root))
 	if err != nil {
 		return nil, nil, err
 	}
