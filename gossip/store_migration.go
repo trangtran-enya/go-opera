@@ -44,7 +44,8 @@ func (s *Store) migrations() *migration.Migration {
 		Next("DAG heads recovery", s.recoverHeadsStorage).
 		Next("DAG last events recovery", s.recoverLastEventsStorage).
 		Next("BlockState recovery", s.recoverBlockState).
-		Next("LlrState recovery", s.recoverLlrState)
+		Next("LlrState recovery", s.recoverLlrState).
+		Next("Flat state cache", s.fillFlatStateCache)
 }
 
 func unsupportedMigration() error {
@@ -357,4 +358,10 @@ func (s *Store) recoverLlrState() error {
 	s.FlushLlrState()
 
 	return nil
+}
+
+func (s *Store) fillFlatStateCache() error {
+	bs, _ := s.GetBlockEpochState()
+	// NOTE: 1000 accs/minute
+	return s.EvmStore().FillFlatStateCache(bs.FinalizedStateRoot)
 }
