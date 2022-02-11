@@ -1,6 +1,8 @@
 package evmstore
 
 import (
+	"fmt"
+	"sort"
 	"time"
 
 	"github.com/Fantom-foundation/lachesis-base/hash"
@@ -23,18 +25,84 @@ func (s *Store) LastStateDB(from hash.Hash) (*FlatStateDB, error) {
 	return &FlatStateDB{
 		StateDB: underliyng,
 		flat:    s.table.FlatState,
+		journal: newJournal(),
 	}, nil
 }
 
 type FlatStateDB struct {
 	*state.StateDB
-
 	flat kvdb.Store
+	// Journal of state modifications. This is the backbone of
+	// Snapshot and RevertToSnapshot.
+	journal        *journal
+	validRevisions []revision
+}
+
+type revision struct {
+	id           int
+	journalIndex int
+}
+
+// Snapshot returns an identifier for the current revision of the state.
+func (s *FlatStateDB) Snapshot() int {
+	id := s.StateDB.Snapshot()
+	s.validRevisions = append(s.validRevisions, revision{id, s.journal.length()})
+	return id
+}
+
+// RevertToSnapshot reverts all state changes made since the given revision.
+func (s *FlatStateDB) RevertToSnapshot(revid int) {
+	// Find the snapshot in the stack of valid snapshots.
+	idx := sort.Search(len(s.validRevisions), func(i int) bool {
+		return s.validRevisions[i].id >= revid
+	})
+	if idx == len(s.validRevisions) || s.validRevisions[idx].id != revid {
+		panic(fmt.Errorf("revision id %v cannot be reverted", revid))
+	}
+	snapshot := s.validRevisions[idx].journalIndex
+
+	// Replay the journal to undo changes and remove invalidated snapshots
+	s.journal.revert(s, snapshot)
+	s.validRevisions = s.validRevisions[:idx]
+
+	s.StateDB.RevertToSnapshot(revid)
+}
+
+// IntermediateRoot computes the current root hash of the state trie.
+// It is called in between transactions to get the root hash that
+// goes into transaction receipts.
+func (s *FlatStateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
+	s.Finalise(deleteEmptyObjects)
+	return s.StateDB.IntermediateRoot(deleteEmptyObjects)
+}
+
+// Finalise finalises the state by removing the s destructed objects and clears
+// the journal as well as the refunds. Finalise, however, will not push any updates
+// into the tries just yet. Only IntermediateRoot or Commit will do that.
+func (s *FlatStateDB) Finalise(deleteEmptyObjects bool) {
+	if len(s.journal.entries) > 0 {
+		s.journal = newJournal()
+	}
+	s.validRevisions = s.validRevisions[:0] // Snapshots can be created without journal entires
+
+	s.StateDB.Finalise(deleteEmptyObjects)
 }
 
 func (s *FlatStateDB) SetState(addr common.Address, loc, val common.Hash) {
-	s.StateDB.SetState(addr, loc, val)
+	// If the new value is the same as old, don't set
+	prev, exists := s.getState(addr, loc)
+	if exists && prev == val {
+		return
+	}
+	// New value is different, update and journal the change
+	s.journal.append(storageChange{
+		account:  &addr,
+		key:      loc,
+		prevalue: prev,
+	})
+
 	s.setState(addr, loc, val)
+	s.StateDB.SetState(addr, loc, val)
 }
 
 func (s *FlatStateDB) setState(addr common.Address, loc, val common.Hash) {
@@ -46,19 +114,13 @@ func (s *FlatStateDB) setState(addr common.Address, loc, val common.Hash) {
 }
 
 func (s *FlatStateDB) GetState(addr common.Address, loc common.Hash) common.Hash {
-	var empty common.Hash
+	val, found := s.getState(addr, loc)
 
-	key := append(addr.Bytes(), loc.Bytes()...)
-	val, err := s.flat.Get(key)
-	if err != nil {
-		panic(err)
-	}
-
-	if val == nil {
+	if !found {
 		msg := "Forced to get state from trie" // See FillFlatStateCache() note
 		value := s.StateDB.GetState(addr, loc)
 		s.setState(addr, loc, value)
-		if value != empty {
+		if value != emptyHash {
 			log.Warn(msg, "reason", "FillFlatStateCache() bad", "addr", addr, "loc", loc.Hex(), "val", value.Hex())
 		} else {
 			log.Warn(msg, "reason", "reading of non existing key", "addr", addr, "loc", loc.Hex())
@@ -66,7 +128,17 @@ func (s *FlatStateDB) GetState(addr common.Address, loc common.Hash) common.Hash
 		return value
 	}
 
-	return common.BytesToHash(val)
+	return val
+}
+
+func (s *FlatStateDB) getState(addr common.Address, loc common.Hash) (common.Hash, bool) {
+	key := append(addr.Bytes(), loc.Bytes()...)
+	val, err := s.flat.Get(key)
+	if err != nil {
+		panic(err)
+	}
+
+	return common.BytesToHash(val), val != nil
 }
 
 func (s *Store) FillFlatStateCache(root hash.Hash) error {
