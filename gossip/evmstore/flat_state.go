@@ -117,15 +117,12 @@ func (s *FlatStateDB) GetState(addr common.Address, loc common.Hash) common.Hash
 	val, found := s.getState(addr, loc)
 
 	if !found {
-		msg := "Forced to get state from trie" // See FillFlatStateCache() note
-		value := s.StateDB.GetState(addr, loc)
-		s.setState(addr, loc, value)
-		if value != emptyHash {
-			log.Warn(msg, "reason", "FillFlatStateCache() bad", "addr", addr, "loc", loc.Hex(), "val", value.Hex())
-		} else {
-			log.Warn(msg, "reason", "reading of non existing key", "addr", addr, "loc", loc.Hex())
+		exp := s.StateDB.GetState(addr, loc)
+		if exp != emptyHash {
+			log.Debug("Forced to get state from trie", "reason", "FillFlatStateCache() bad", "addr", addr, "loc", loc.Hex(), "val", exp.Hex())
+			s.setState(addr, loc, exp)
+			return exp
 		}
-		return value
 	}
 
 	return val
