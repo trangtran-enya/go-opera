@@ -30,7 +30,7 @@ import (
 )
 
 // ApplyGenesis writes or updates the genesis block in db.
-func ApplyGenesis(statedb *state.StateDB, g opera.Genesis, maxMemoryUsage int) (*EvmBlock, error) {
+func ApplyGenesis(statedb StateDB, g opera.Genesis, maxMemoryUsage int) (*EvmBlock, error) {
 	mem := 0
 	capEvm := func(usage int) {
 		mem += usage
@@ -65,7 +65,7 @@ func ApplyGenesis(statedb *state.StateDB, g opera.Genesis, maxMemoryUsage int) (
 	return block, nil
 }
 
-func flush(statedb *state.StateDB, clean bool) (root common.Hash, err error) {
+func flush(statedb StateDB, clean bool) (root common.Hash, err error) {
 	root, err = statedb.Commit(clean)
 	if err != nil {
 		return

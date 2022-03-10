@@ -42,6 +42,7 @@ type Store struct {
 		Receipts    kvdb.Store `table:"r"`
 		TxPositions kvdb.Store `table:"x"`
 		Txs         kvdb.Store `table:"X"`
+		FlatState   kvdb.Store `table:"F"`
 	}
 
 	EvmDb    ethdb.Database
@@ -232,14 +233,22 @@ func (s *Store) Cap(max, min int) {
 	}
 }
 
-// StateDB returns state database.
-func (s *Store) StateDB(from hash.Hash) (*state.StateDB, error) {
+// HistoryStateDB returns state database by root hash.
+// Note: don't use it for the same process with LastStateDB()
+// because it doesn't affect the last state flat cache.
+// TODO: return limited interface.
+func (s *Store) HistoryStateDB(from hash.Hash) (*state.StateDB, error) {
+	return s.stateDB(from)
+}
+
+// stateDB returns state database.
+func (s *Store) stateDB(from hash.Hash) (*state.StateDB, error) {
 	return state.NewWithSnapLayers(common.Hash(from), s.EvmState, s.Snaps, 0)
 }
 
 // HasStateDB returns if state database exists
 func (s *Store) HasStateDB(from hash.Hash) bool {
-	_, err := s.StateDB(from)
+	_, err := s.stateDB(from)
 	return err == nil
 }
 

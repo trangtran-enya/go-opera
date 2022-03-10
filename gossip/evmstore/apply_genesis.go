@@ -37,10 +37,18 @@ func (s *Store) ApplyGenesis(g opera.Genesis, startingRoot hash.Hash) (evmBlock 
 	if err != nil {
 		return nil, err
 	}
-	// state
-	statedb, err := s.StateDB(startingRoot)
+
+	// flat cache
+	err = s.FillFlatStateCache(startingRoot)
 	if err != nil {
 		return nil, err
 	}
+
+	// state
+	statedb, err := s.LastStateDB(startingRoot)
+	if err != nil {
+		return nil, err
+	}
+
 	return evmcore.ApplyGenesis(statedb, g, 128*opt.MiB)
 }

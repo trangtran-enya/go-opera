@@ -370,7 +370,7 @@ func (env *testEnv) ReadOnly() *bind.CallOpts {
 }
 
 func (env *testEnv) State() *state.StateDB {
-	statedb, _ := env.store.evm.StateDB(env.store.GetBlockState().FinalizedStateRoot)
+	statedb, _ := env.store.evm.HistoryStateDB(env.store.GetBlockState().FinalizedStateRoot)
 	return statedb
 }
 
