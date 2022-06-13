@@ -218,6 +218,8 @@ func init() {
 		snapshotCommand,
 		// See fixdirty.go
 		fixDirtyCommand,
+		erigonCommand,
+		importPreimagesCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
