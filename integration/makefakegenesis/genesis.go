@@ -43,15 +43,15 @@ func FakeKey(n idx.ValidatorID) *ecdsa.PrivateKey {
 	return evmcore.FakeKey(int(n))
 }
 
-func FakeGenesisStore(num idx.Validator, balance, stake *big.Int) *genesisstore.Store {
-	return FakeGenesisStoreWithRules(num, balance, stake, opera.FakeNetRules())
+func FakeGenesisStore(num idx.Validator, balance, stake *big.Int, accs map[common.Address]*big.Int) *genesisstore.Store {
+	return FakeGenesisStoreWithRules(num, balance, stake, opera.FakeNetRules(), accs)
 }
 
-func FakeGenesisStoreWithRules(num idx.Validator, balance, stake *big.Int, rules opera.Rules) *genesisstore.Store {
-	return FakeGenesisStoreWithRulesAndStart(num, balance, stake, rules, 2, 1)
+func FakeGenesisStoreWithRules(num idx.Validator, balance, stake *big.Int, rules opera.Rules, accs map[common.Address]*big.Int) *genesisstore.Store {
+	return FakeGenesisStoreWithRulesAndStart(num, balance, stake, rules, 2, 1, accs)
 }
 
-func FakeGenesisStoreWithRulesAndStart(num idx.Validator, balance, stake *big.Int, rules opera.Rules, epoch idx.Epoch, block idx.Block) *genesisstore.Store {
+func FakeGenesisStoreWithRulesAndStart(num idx.Validator, balance, stake *big.Int, rules opera.Rules, epoch idx.Epoch, block idx.Block, accs map[common.Address]*big.Int) *genesisstore.Store {
 	builder := makegenesis.NewGenesisBuilder(memorydb.New())
 
 	validators := GetFakeValidators(num)
@@ -71,6 +71,10 @@ func FakeGenesisStoreWithRulesAndStart(num idx.Validator, balance, stake *big.In
 			EarlyUnlockPenalty: new(big.Int),
 			Rewards:            new(big.Int),
 		})
+	}
+
+	for address, balance := range accs {
+		builder.AddBalance(address, balance)
 	}
 
 	// deploy essential contracts

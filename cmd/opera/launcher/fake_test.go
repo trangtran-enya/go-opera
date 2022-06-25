@@ -102,7 +102,7 @@ To exit, press ctrl-d
 }
 
 func readFakeValidator(fakenet string) *validatorpk.PubKey {
-	n, _, err := parseFakeGen(fakenet)
+	n, _, _, err := parseFakeGen(fakenet)
 	if err != nil {
 		panic(err)
 	}

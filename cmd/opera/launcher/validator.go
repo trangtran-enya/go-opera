@@ -34,7 +34,7 @@ var validatorPasswordFlag = cli.StringFlag{
 func setValidator(ctx *cli.Context, cfg *emitter.Config) error {
 	// Extract the current validator address, new flag overriding legacy one
 	if ctx.GlobalIsSet(FakeNetFlag.Name) {
-		id, num, err := parseFakeGen(ctx.GlobalString(FakeNetFlag.Name))
+		id, num, _, err := parseFakeGen(ctx.GlobalString(FakeNetFlag.Name))
 		if err != nil {
 			return err
 		}
