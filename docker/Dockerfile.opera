@@ -16,6 +16,7 @@ FROM alpine:latest
 RUN apk add --no-cache ca-certificates
 
 COPY --from=builder /go/go-opera/build/opera /
+COPY --from=builder /go/go-opera/docker/test_accs.json /
 
 EXPOSE 5050 18545 18546 18547 19090
 
